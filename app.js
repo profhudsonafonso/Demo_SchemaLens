@@ -1,56 +1,18 @@
-const navItems = [
-  ["OV", "Overview"],
-  ["CM", "Conceptual Model"],
-  ["WL", "Workload"],
-  ["AM", "Analytical Matrix"],
-  ["CA", "Candidates"],
-  ["BM", "Benchmark"],
-  ["QP", "Query Plan"],
-  ["EX", "Explanation"],
-  ["FI", "Files"],
+const pages = ["Overview", "Decision Process"];
+
+const resultMetrics = [
+  ["Activated family", "containment"],
+  ["Activated candidates", "G7, G8, G9"],
+  ["Best candidate", "G7"],
+  ["Design-space reduction", "70%"],
+  ["Relative regret", "0.00"],
+  ["Top-1 preservation", "Yes"],
 ];
 
-const tabs = ["Overview", "Inputs", "Matrix", "Candidates", "Results", "Artifacts"];
-
-const caseSummary = [
-  ["Dataset", "IMDb mini"],
-  ["Query", "QG6_EpisodesOfSeries"],
-  ["Access pattern", "containment retrieval"],
-  ["Conceptual path", "Series -> Episode"],
-  [
-    "Goal",
-    "Compare MongoDB schema candidates for retrieving all episodes of a selected series.",
-  ],
-];
-
-const metrics = [
-  ["Activated family", "Containment", "Relationship semantics matched"],
-  ["Candidates", "G7, G8, G9", "3 active templates"],
-  ["Mock winner", "G7", "Reference-based containment"],
-  ["Design-space reduction", "70%", "3 of 10 templates remain"],
-];
-
-const workflowSteps = [
-  [
-    "Load conceptual model",
-    "Use the predefined Series and Episode conceptual path.",
-  ],
-  [
-    "Load workload query",
-    "Select QG6_EpisodesOfSeries from the IMDb mini case.",
-  ],
-  [
-    "Extract analytical matrix",
-    "Record root, relationship semantics, and access variables.",
-  ],
-  [
-    "Activate MongoDB candidates",
-    "Reduce the search space to the containment family.",
-  ],
-  [
-    "Compare benchmark results",
-    "Show static mock latency and query-plan evidence.",
-  ],
+const benchmarkRows = [
+  ["G7", "External indexed episodes", "2.6 ms", "Best"],
+  ["G8", "Reduced embedded episodes", "6.1 ms", "Slower"],
+  ["G9", "Rich embedded episodes", "12.0 ms", "Slower"],
 ];
 
 const matrixRows = [
@@ -65,137 +27,153 @@ const matrixRows = [
   ["Update volatility", "not relevant"],
 ];
 
-const candidates = [
+const artifacts = [
+  ["schema.yaml", "Conceptual IMDb mini schema"],
+  ["workload.yaml", "QG6 workload query definition"],
+  ["reduced_dataset/", "Static CSV/JSON sample data"],
+  ["expected_activation.json", "Expected containment activation"],
+];
+
+const candidateDetails = [
   {
     code: "G7",
-    name: "Reference-based containment",
-    description:
-      "Series and Episode are stored in separate collections. Episodes reference the parent series.",
-    collections: ["series", "episodes"],
-    behavior: "Indexed external episode access. Lower document growth.",
-    winner: true,
+    collections: "series, episodes",
+    strategy: "episodes are stored separately and referenced by series_id",
   },
   {
     code: "G8",
-    name: "Reduced embedded containment",
-    description: "Series embeds a reduced episode array.",
-    collections: ["series"],
-    behavior: "Fewer explicit traversals, but larger series documents.",
-    winner: false,
+    collections: "series",
+    strategy: "series embeds a reduced episode array",
   },
   {
     code: "G9",
-    name: "Rich embedded containment",
-    description: "Series embeds a richer episode array.",
-    collections: ["series"],
-    behavior: "More local data, but larger document payload.",
-    winner: false,
+    collections: "series",
+    strategy: "series embeds a richer episode array",
   },
 ];
 
-const benchmarkRows = [
-  ["G7", "2.1 ms", "2.6 ms", "1200", "1200", "Best"],
-  ["G8", "4.9 ms", "6.1 ms", "1", "1", "Slower"],
-  ["G9", "9.8 ms", "12.0 ms", "1", "1", "Slower"],
-];
+let currentPage = "Overview";
+let resultGenerated = false;
 
-const artifacts = [
-  "analytical_matrix.json",
-  "activated_candidates.json",
-  "generated_schemas/g7_schema.json",
-  "generated_schemas/g8_schema.json",
-  "generated_schemas/g9_schema.json",
-  "benchmark_results.csv",
-  "query_plan_results.csv",
-  "explanation_summary.md",
-];
-
-function Header() {
+function AppHeader() {
   return `
-    <header class="top-header">
-      <div class="brand-group">
-        <div class="brand-mark" aria-hidden="true">SL</div>
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">SL</span>
         <div>
-          <h1 class="brand-title">SchemaLens Demo</h1>
-          <p class="brand-subtitle">Explainable schema candidate workflow</p>
-        </div>
-        <div class="badge-row" aria-label="Demo status">
-          <span class="badge">v0.1 static demo</span>
-          <span class="badge static">Static Prototype</span>
+          <h1>SchemaLens Demo</h1>
+          <p>Research prototype workspace</p>
         </div>
       </div>
-      <div class="header-actions">
-        <button class="action-button primary" type="button" disabled>Run Demo</button>
-        <button class="action-button" type="button" disabled>Export Results</button>
-      </div>
+      <span class="status-pill">Static demo mode</span>
     </header>
   `;
 }
 
-function Sidebar() {
-  const items = navItems
-    .map(([icon, label]) => {
-      const active = label === "Overview" ? " active" : "";
-      const current = label === "Overview" ? ' aria-current="page"' : "";
-      return `
-        <li>
-          <button class="nav-item${active}" type="button"${current}>
-            <span class="nav-icon" aria-hidden="true">${icon}</span>
-            <span>${label}</span>
-          </button>
-        </li>
-      `;
-    })
-    .join("");
-
+function SidebarNav() {
   return `
     <aside class="sidebar">
-      <p class="sidebar-title">Workspace</p>
-      <nav aria-label="SchemaLens sections">
-        <ul class="nav-list">${items}</ul>
+      <div class="sidebar-block">
+        <p class="sidebar-label">Project</p>
+        <h2>SchemaLens Demo</h2>
+        <p class="version">v0.1 static prototype</p>
+      </div>
+
+      <nav class="sidebar-block" aria-label="Main navigation">
+        <p class="sidebar-label">Navigation</p>
+        <div class="nav-list">
+          ${pages
+            .map(
+              (page) => `
+                <button class="nav-item ${page === currentPage ? "active" : ""}" type="button" data-page="${page}" ${page === currentPage ? 'aria-current="page"' : ""}>
+                  ${page}
+                </button>
+              `,
+            )
+            .join("")}
+        </div>
       </nav>
+
+      <div class="sidebar-block sidebar-status">
+        <p class="sidebar-label">Status</p>
+        <span class="status-pill compact">Static demo mode</span>
+      </div>
     </aside>
   `;
 }
 
-function SectionTabs() {
+function Card({ title, body, className = "", action = "" }) {
   return `
-    <div class="section-tabs" role="tablist" aria-label="Overview subsections">
-      ${tabs
-        .map(
-          (tab) =>
-            `<button class="tab${tab === "Overview" ? " active" : ""}" type="button" role="tab" aria-selected="${tab === "Overview"}">${tab}</button>`,
-        )
-        .join("")}
+    <section class="card ${className}">
+      <div class="card-header">
+        <h2>${title}</h2>
+        ${action}
+      </div>
+      <div class="card-body">${body}</div>
+    </section>
+  `;
+}
+
+function FilePicker({ label, placeholder, buttonText }) {
+  return `
+    <div class="field-group">
+      <label>${label}</label>
+      <div class="dropzone">
+        <p>${placeholder}</p>
+        <button class="secondary-button" type="button">${buttonText}</button>
+      </div>
     </div>
   `;
 }
 
-function MetricCard([label, value, note]) {
+function InputPanel() {
+  return Card({
+    title: "Run SchemaLens Demo",
+    className: "input-card",
+    body: `
+      ${FilePicker({
+        label: "Conceptual schema",
+        placeholder: "Upload schema.yaml or use IMDb mini schema",
+        buttonText: "Choose schema file",
+      })}
+      ${FilePicker({
+        label: "Reduced dataset",
+        placeholder: "Upload CSV/JSON files or use IMDb mini dataset",
+        buttonText: "Choose dataset files",
+      })}
+      <div class="field-group">
+        <label for="workload-query">Workload query</label>
+        <textarea id="workload-query" rows="5">Return all episodes associated with a given series_id.</textarea>
+      </div>
+      <button class="primary-button" id="verify-button" type="button">Verify best schema</button>
+      <p class="run-status" id="run-status">${resultGenerated ? "Mock result generated" : "Ready"}</p>
+    `,
+  });
+}
+
+function MetricBadge([label, value]) {
   return `
-    <article class="metric-card">
-      <p class="metric-label">${label}</p>
-      <p class="metric-value">${value}</p>
-      <p class="metric-note">${note}</p>
-    </article>
+    <div class="metric-badge">
+      <span>${label}</span>
+      <strong>${value}</strong>
+    </div>
   `;
 }
 
-function WorkflowStep(step, index) {
-  const [title, description] = step;
-  return `
-    <article class="workflow-step">
-      <span class="step-icon" aria-hidden="true">${String(index + 1).padStart(2, "0")}</span>
-      <h3 class="step-title">${title}</h3>
-      <p class="step-text">${description}</p>
-    </article>
-  `;
+function ResultSummary() {
+  return Card({
+    title: "SchemaLens Result",
+    className: resultGenerated ? "result-card is-visible" : "result-card",
+    body: `
+      <div class="metric-grid">${resultMetrics.map(MetricBadge).join("")}</div>
+    `,
+  });
 }
 
-function DataTable({ headers, rows, numericColumns = [] }) {
+function DataTable({ headers, rows }) {
   return `
     <div class="table-wrap">
-      <table class="data-table">
+      <table>
         <thead>
           <tr>${headers.map((header) => `<th scope="col">${header}</th>`).join("")}</tr>
         </thead>
@@ -203,14 +181,7 @@ function DataTable({ headers, rows, numericColumns = [] }) {
           ${rows
             .map(
               (row) => `
-                <tr>
-                  ${row
-                    .map((cell, index) => {
-                      const className = numericColumns.includes(index) ? ' class="numeric"' : "";
-                      return `<td${className}>${cell}</td>`;
-                    })
-                    .join("")}
-                </tr>
+                <tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>
               `,
             )
             .join("")}
@@ -220,123 +191,49 @@ function DataTable({ headers, rows, numericColumns = [] }) {
   `;
 }
 
-function CandidateCard(candidate) {
-  return `
-    <article class="candidate-card${candidate.winner ? " winner" : ""}">
-      <div class="candidate-top">
-        <div class="candidate-meta">
-          <h3 class="candidate-code">${candidate.code}</h3>
-          ${candidate.winner ? '<span class="badge success">Best in mock result</span>' : '<span class="badge info">Activated</span>'}
-        </div>
-        <p class="candidate-name">${candidate.name}</p>
-        <p class="candidate-desc">${candidate.description}</p>
-      </div>
-      <div class="candidate-section">
-        <p class="mini-heading">Collections</p>
-        <ul class="collection-list">
-          ${candidate.collections.map((collection) => `<li>${collection}</li>`).join("")}
-        </ul>
-      </div>
-      <div class="candidate-section">
-        <p class="mini-heading">Expected behavior</p>
-        <p class="candidate-behavior">${candidate.behavior}</p>
-      </div>
-      <div class="candidate-footer">
-        <span class="badge ${candidate.winner ? "success" : "warning"}">
-          ${candidate.winner ? "Mock best" : "Mock slower"}
-        </span>
-      </div>
-    </article>
-  `;
-}
-
-function ExplanationPanel() {
-  return `
-    <section class="explanation-card" aria-labelledby="explanation-title">
-      <div class="explanation-section">
-        <h2 class="explanation-title" id="explanation-title">Why did SchemaLens activate G7, G8, and G9?</h2>
-        <p class="explanation-text">
-          The query follows a containment path from Series to Episode. The analytical matrix records root=Series,
-          relationship semantics=containment, Rc=1, D=1, and Re=0. Therefore, SchemaLens activates the containment
-          family: G7, G8, and G9.
-        </p>
-      </div>
-      <div class="explanation-section">
-        <h2 class="explanation-title">Why is G7 the mock winner?</h2>
-        <p class="explanation-text">
-          Although G8 and G9 reduce explicit traversal by embedding episodes, they create larger Series documents.
-          In this workload, keeping episodes external and indexed can be faster.
-        </p>
-      </div>
-    </section>
-  `;
-}
-
-function ArtifactList() {
-  return `
-    <div>
-      <span class="artifact-root">outputs/</span>
-      <ul class="artifact-list">
-        ${artifacts.map((artifact) => `<li class="${artifact.includes("/") ? "nested" : ""}">${artifact}</li>`).join("")}
-      </ul>
-    </div>
-  `;
-}
-
-function Card({ title, subtitle = "", badge = "", body, className = "" }) {
-  return `
-    <section class="card ${className}">
-      <div class="card-header">
-        <div>
-          <h2 class="card-title">${title}</h2>
-          ${subtitle ? `<p class="card-subtitle">${subtitle}</p>` : ""}
-        </div>
-        ${badge}
-      </div>
-      <div class="card-body">${body}</div>
-    </section>
-  `;
-}
-
-function DemoCaseSummary() {
-  const items = caseSummary
-    .map(
-      ([label, value]) => `
-        <div class="case-item">
-          <p class="case-label">${label}</p>
-          <p class="case-value">${value}</p>
-        </div>
-      `,
-    )
-    .join("");
-
+function BenchmarkSummary() {
   return Card({
-    title: "Demo Case",
-    subtitle: "IMDb mini plus QG6 containment retrieval",
-    badge: '<span class="badge info">Predefined case</span>',
+    title: "Benchmark Summary",
+    className: "benchmark-card",
     body: `
-      <div class="case-grid">${items}</div>
-      <p class="summary-copy">
-        This demo shows how SchemaLens reduces the MongoDB design space before benchmarking.
-        Instead of testing all templates blindly, it activates a small family of semantically meaningful candidates.
-      </p>
+      ${DataTable({
+        headers: ["Candidate", "Strategy", "p95 latency", "Result"],
+        rows: benchmarkRows,
+      })}
+      <div class="explanation-note">
+        SchemaLens activated the containment family because the query follows the Series -> Episode path.
+        In this mock benchmark, G7 is the best candidate because it keeps episodes externally indexed and
+        avoids large embedded Series documents.
+      </div>
     `,
   });
 }
 
-function WorkflowSection() {
-  return Card({
-    title: "Workflow Steps",
-    subtitle: "Static view of the minimal SchemaLens pipeline",
-    body: `<div class="workflow-grid">${workflowSteps.map(WorkflowStep).join("")}</div>`,
-  });
+function OverviewPage() {
+  return `
+    <main class="main">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">Overview</p>
+          <h2>Verify a schema candidate from user inputs</h2>
+        </div>
+        <p class="heading-copy">Select the static IMDb mini inputs, paste a workload query, and review the mock recommendation.</p>
+      </div>
+
+      <div class="overview-grid">
+        ${InputPanel()}
+        <div class="result-column" id="result-section">
+          ${ResultSummary()}
+          ${BenchmarkSummary()}
+        </div>
+      </div>
+    </main>
+  `;
 }
 
-function MatrixSection() {
+function AnalyticalMatrix() {
   return Card({
-    title: "Analytical Matrix Preview",
-    subtitle: "Explainability variables extracted from the demo case",
-    badge: '<span class="badge static">Explanation artifact</span>',
+    title: "Analytical Matrix",
     body: DataTable({
       headers: ["Variable", "Value"],
       rows: matrixRows,
@@ -344,97 +241,83 @@ function MatrixSection() {
   });
 }
 
-function CandidatesSection() {
+function ArtifactList() {
   return Card({
-    title: "Activated Candidates",
-    subtitle: "Containment family selected by the analytical matrix",
-    badge: '<span class="badge success">G7, G8, G9 active</span>',
-    body: `<div class="candidate-grid">${candidates.map(CandidateCard).join("")}</div>`,
+    title: "Input Artifacts",
+    body: `
+      <div class="artifact-grid">
+        ${artifacts
+          .map(
+            ([name, description]) => `
+              <article class="artifact-card">
+                <strong>${name}</strong>
+                <p>${description}</p>
+              </article>
+            `,
+          )
+          .join("")}
+      </div>
+    `,
   });
 }
 
-function BenchmarkSection() {
+function CandidateDetails() {
   return Card({
-    title: "Mock Benchmark Results",
-    subtitle: "Static comparison table for the prototype view",
+    title: "Candidate Generation Details",
     body: `
-      ${DataTable({
-        headers: [
-          "Candidate",
-          "Avg latency",
-          "p95 latency",
-          "Docs examined",
-          "Keys examined",
-          "Result",
-        ],
-        rows: benchmarkRows,
-        numericColumns: [1, 2, 3, 4],
-      })}
-      <p class="note">
-        Numbers are mock values for the static prototype. Real benchmark execution will be added later.
+      <div class="candidate-summary">
+        <span>Activated family: <strong>containment</strong></span>
+        <span>Activated candidates: <strong>G7, G8, G9</strong></span>
+        <span>Full design space: <strong>10 candidates</strong></span>
+        <span>Activated space: <strong>3 candidates</strong></span>
+        <span>Design-space reduction: <strong>70%</strong></span>
+      </div>
+      <div class="candidate-list">
+        ${candidateDetails
+          .map(
+            (candidate) => `
+              <article class="candidate-card">
+                <h3>${candidate.code}</h3>
+                <p><strong>Collections:</strong> ${candidate.collections}</p>
+                <p><strong>Strategy:</strong> ${candidate.strategy}</p>
+              </article>
+            `,
+          )
+          .join("")}
+      </div>
+    `,
+  });
+}
+
+function QueryPlanExplanation() {
+  return Card({
+    title: "Query-plan / Physical Explanation",
+    body: `
+      <p class="plain-copy">
+        G7 keeps episodes externally indexed. G8 and G9 reduce explicit traversal by embedding episodes,
+        but they increase the physical size of Series documents. Therefore, in this workload, the external
+        indexed representation is faster.
       </p>
     `,
   });
 }
 
-function ExplanationSection() {
-  return Card({
-    title: "Explanation Panel",
-    subtitle: "Readable rationale for activation and mock winner selection",
-    body: ExplanationPanel(),
-  });
-}
-
-function ArtifactSection() {
-  return Card({
-    title: "Output Artifacts",
-    subtitle: "Files expected from the complete future workflow",
-    className: "artifact-card",
-    body: ArtifactList(),
-  });
-}
-
-function StatusPanel() {
-  return `
-    <aside class="status-panel" aria-label="Prototype status">
-      <div class="status-row"><span>Data mode</span><strong>Mock/static</strong></div>
-      <div class="status-row"><span>MongoDB calls</span><strong>Disabled</strong></div>
-      <div class="status-row"><span>Benchmark execution</span><strong>Not implemented</strong></div>
-      <div class="status-row"><span>Selected section</span><strong>Overview</strong></div>
-    </aside>
-  `;
-}
-
-function MainContent() {
+function DecisionProcessPage() {
   return `
     <main class="main">
-      <div class="workspace">
-        <div class="workspace-heading">
-          <div>
-            <p class="eyebrow">SchemaLens Demo</p>
-            <h2 class="page-title">From evidence to explainable MongoDB schema candidates</h2>
-            <p class="page-message">
-              From conceptual model and workload evidence to explainable MongoDB schema candidates and empirical
-              performance comparison.
-            </p>
-          </div>
-          ${StatusPanel()}
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">Decision Process</p>
+          <h2>Internal reasoning artifacts</h2>
         </div>
-        ${SectionTabs()}
-        <section class="metric-grid" aria-label="SchemaLens demo metrics">
-          ${metrics.map(MetricCard).join("")}
-        </section>
-        <div class="grid two-column">
-          ${DemoCaseSummary()}
-          ${MatrixSection()}
-        </div>
-        ${WorkflowSection()}
-        ${CandidatesSection()}
-        <div class="grid two-column">
-          ${BenchmarkSection()}
-          ${ExplanationSection()}
-        </div>
-        ${ArtifactSection()}
+        <p class="heading-copy">Detailed static evidence kept separate from the user-facing workflow.</p>
+      </div>
+
+      <div class="process-grid">
+        ${AnalyticalMatrix()}
+        ${ArtifactList()}
+        ${CandidateDetails()}
+        ${QueryPlanExplanation()}
       </div>
     </main>
   `;
@@ -443,13 +326,36 @@ function MainContent() {
 function AppShell() {
   return `
     <div class="app-shell">
-      ${Header()}
+      ${AppHeader()}
       <div class="layout">
-        ${Sidebar()}
-        ${MainContent()}
+        ${SidebarNav()}
+        ${currentPage === "Overview" ? OverviewPage() : DecisionProcessPage()}
       </div>
     </div>
   `;
 }
 
-document.getElementById("app").innerHTML = AppShell();
+function bindEvents() {
+  document.querySelectorAll("[data-page]").forEach((button) => {
+    button.addEventListener("click", () => {
+      currentPage = button.dataset.page;
+      render();
+    });
+  });
+
+  const verifyButton = document.getElementById("verify-button");
+  if (verifyButton) {
+    verifyButton.addEventListener("click", () => {
+      resultGenerated = true;
+      render();
+      document.getElementById("result-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+}
+
+function render() {
+  document.getElementById("app").innerHTML = AppShell();
+  bindEvents();
+}
+
+render();

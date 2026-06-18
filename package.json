@@ -1,0 +1,12 @@
+{
+  "name": "schemalens-demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Static SchemaLens Demo prototype prepared for GitHub Pages.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-static.mjs",
+    "dev": "node scripts/static-server.mjs . 5173",
+    "preview": "node scripts/static-server.mjs dist 4173"
+  }
+}

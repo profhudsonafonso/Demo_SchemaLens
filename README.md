@@ -57,16 +57,65 @@ The Decision Process page keeps internal details out of the main workflow. It in
 
 Because this is a static prototype, you can open `index.html` directly in a browser.
 
-To serve it from localhost:
+To install and build the static site:
 
 ```bash
-python3 -m http.server 3000
+npm ci
+npm run build
+```
+
+To serve the source files from localhost:
+
+```bash
+npm run dev
 ```
 
 Then open:
 
 ```text
-http://localhost:3000
+http://localhost:5173/
+```
+
+To preview the built `dist/` output:
+
+```bash
+npm run preview
+```
+
+Then open:
+
+```text
+http://localhost:4173/
+```
+
+## Deployment with GitHub Pages
+
+This is a static UI prototype. There is no backend integration, database connection, upload flow, MongoDB materialization, or live benchmark execution in this deployment setup.
+
+The site is deployed using GitHub Actions and GitHub Pages. In the GitHub repository settings, set:
+
+```text
+Repository -> Settings -> Pages -> Source -> GitHub Actions
+```
+
+Local commands:
+
+```bash
+npm ci
+npm run build
+npm run dev
+```
+
+Build output directory:
+
+```text
+dist/
+```
+
+Expected public URL:
+
+```text
+https://profhudsonafonso.github.io/Demo_SchemaLens/
 ```
 
 ## Repository Files
@@ -75,6 +124,12 @@ http://localhost:3000
 index.html
 app.js
 styles.css
+package.json
+package-lock.json
+scripts/build-static.mjs
+scripts/static-server.mjs
+.github/workflows/deploy-pages.yml
+.gitignore
 README.md
 ```
 

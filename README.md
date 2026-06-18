@@ -30,6 +30,18 @@ Activated candidates: G7, G8, G9
 Best candidate: G7
 ```
 
+## Language Support
+
+The static demo supports English and Portuguese. English is the default language.
+
+The selected language is stored in `localStorage` using the key:
+
+```text
+schemalens_demo_language
+```
+
+The language can be changed from the selector in the top bar, and the selection is preserved after page reloads.
+
 ## Pages
 
 ### Overview

@@ -64,6 +64,42 @@ button {
   gap: 12px;
 }
 
+.header-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.language-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.language-option {
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.language-option:hover,
+.language-option.active {
+  border-color: #aac0f0;
+  background: var(--surface);
+  color: var(--accent-strong);
+}
+
 .brand-mark {
   display: grid;
   width: 38px;
@@ -527,6 +563,11 @@ tr:last-child td {
     align-items: flex-start;
     flex-direction: column;
     padding: 12px 16px;
+  }
+
+  .header-controls {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .layout {
